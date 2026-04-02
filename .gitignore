@@ -73,7 +73,7 @@ yarn-error.log
 !.yarn/versions
 
 # Environment & secrets
-build/env.ts
+config/env.ts
 
 .env
 .env.*
