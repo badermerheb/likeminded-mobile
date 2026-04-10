@@ -297,6 +297,16 @@ export const ChatbotScreen: React.FC = () => {
     }
 
     if (Array.isArray(historyMessages) && historyMessages.length > 0) {
+      // Find the index of the last bot message so we only show options for it
+      let lastBotIndex = -1;
+      for (let idx = historyMessages.length - 1; idx >= 0; idx--) {
+        const r = historyMessages[idx].role;
+        if (r === 'assistant' || r === 'bot') {
+          lastBotIndex = idx;
+          break;
+        }
+      }
+
       // Convert history messages — parse last bot message for options
       const converted: ChatMessage[] = historyMessages.map(
         (msg: any, i: number) => {
@@ -304,18 +314,7 @@ export const ChatbotScreen: React.FC = () => {
           const isBot = msg.role === 'assistant' || msg.role === 'bot';
 
           if (isBot) {
-            // Only parse options for the LAST bot message
-            const isLast =
-              i ===
-              historyMessages.length -
-                1 -
-                [...historyMessages]
-                  .slice(i + 1)
-                  .reverse()
-                  .findIndex(
-                    (m: any) => m.role === 'assistant' || m.role === 'bot',
-                  );
-
+            const isLast = i === lastBotIndex;
             const {questionText, options, isFreeform, freeformKey} = parseMcqReply(content);
             return {
               id: `hist-${i}`,
@@ -338,6 +337,16 @@ export const ChatbotScreen: React.FC = () => {
 
       setMessages(converted);
       setHistoryLoaded(true);
+
+      // If the last message is from the user (they answered but didn't get the
+      // next question), request the next question from the backend
+      if (
+        lastBotIndex < historyMessages.length - 1 &&
+        data?.phase !== 'done'
+      ) {
+        setIsTyping(true);
+        sendMutation.mutate('continue');
+      }
     } else if (historyQuery.isSuccess) {
       // No history — need to kick off the first question
       setHistoryLoaded(true);
@@ -530,7 +539,7 @@ export const ChatbotScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}>
       {/* Progress Header */}
       {!isDone && (progress?.answered ?? 0) > 0 ? (

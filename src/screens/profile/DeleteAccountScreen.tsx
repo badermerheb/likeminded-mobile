@@ -1,5 +1,5 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, StyleSheet, Alert, ScrollView} from 'react-native';
+import {View, Text, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {Input} from '../../components/ui/Input';
@@ -10,6 +10,7 @@ import {typography} from '../../theme/typography';
 import {spacing, borderRadius} from '../../theme/spacing';
 import {profileService} from '../../services/profile';
 import {authService} from '../../services/auth';
+import {notificationService} from '../../services/notifications';
 
 export const DeleteAccountScreen: React.FC = () => {
   const {colors} = useTheme();
@@ -33,6 +34,7 @@ export const DeleteAccountScreen: React.FC = () => {
           onPress: async () => {
             setLoading(true);
             try {
+              await notificationService.unregisterToken().catch(() => {});
               await profileService.deleteMe();
               await authService.signOut();
             } catch {
@@ -48,6 +50,10 @@ export const DeleteAccountScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={90}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -127,6 +133,7 @@ export const DeleteAccountScreen: React.FC = () => {
           />
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

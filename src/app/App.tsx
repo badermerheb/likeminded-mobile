@@ -1,19 +1,22 @@
-import React from 'react';
-import {StatusBar, StyleSheet, useColorScheme} from 'react-native';
+import React, {useEffect} from 'react';
+import {StatusBar, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {RootNavigator} from '../navigation/RootNavigator';
-import {ThemeProvider} from '../theme/ThemeContext';
-import {darkColors, lightColors} from '../theme/colors';
+import {ThemeProvider, useTheme} from '../theme/ThemeContext';
+import {navigationRef} from '../services/navigationRef';
+import {notificationService} from '../services/notifications';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
-      staleTime: 30000,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 min — data stays fresh, avoids refetch spam
+      gcTime: 10 * 60 * 1000, // 10 min — keep unused cache longer
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
     },
     mutations: {
       retry: 1,
@@ -22,12 +25,17 @@ const queryClient = new QueryClient({
 });
 
 const AppInner: React.FC = () => {
-  const scheme = useColorScheme();
-  const isDark = scheme !== 'light';
-  const c = isDark ? darkColors : lightColors;
+  const {colors: c, isDark} = useTheme();
+
+  // Set up Notifee foreground tap handler
+  useEffect(() => {
+    const unsub = notificationService.setupForegroundNotifeeHandler();
+    return unsub;
+  }, []);
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       theme={{
         dark: isDark,
         colors: {

@@ -18,7 +18,7 @@ const getInitials = (name: string): string => {
   return name.slice(0, 2).toUpperCase();
 };
 
-export const Avatar: React.FC<AvatarProps> = ({name, size = 48, style}) => {
+const AvatarInner: React.FC<AvatarProps> = ({name, size = 48, style}) => {
   const {colors} = useTheme();
   const fontSize = size * 0.38;
 
@@ -41,6 +41,8 @@ export const Avatar: React.FC<AvatarProps> = ({name, size = 48, style}) => {
     </LinearGradient>
   );
 };
+
+export const Avatar = React.memo(AvatarInner);
 
 const styles = StyleSheet.create({
   avatar: {

@@ -11,18 +11,36 @@ interface RequestOptions {
 
 class ApiClient {
   private baseUrl: string;
+  private _cachedToken: string | null = null;
+  private _tokenExpiry: number = 0;
 
   constructor() {
     this.baseUrl = ENV.API_BASE_URL;
   }
 
   private async getAuthHeader(): Promise<Record<string, string>> {
+    // Return cached token if still valid (with 60s buffer)
+    const now = Date.now() / 1000;
+    if (this._cachedToken && this._tokenExpiry > now + 60) {
+      return { authorization: `Bearer ${this._cachedToken}` };
+    }
+
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token;
     if (token) {
+      this._cachedToken = token;
+      this._tokenExpiry = data?.session?.expires_at ?? 0;
       return { authorization: `Bearer ${token}` };
     }
+    this._cachedToken = null;
+    this._tokenExpiry = 0;
     return {};
+  }
+
+  /** Call on sign-out to clear cached token */
+  clearTokenCache() {
+    this._cachedToken = null;
+    this._tokenExpiry = 0;
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | boolean>): string {

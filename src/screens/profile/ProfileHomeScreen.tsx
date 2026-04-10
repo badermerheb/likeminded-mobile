@@ -32,6 +32,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {authService} from '../../services/auth';
 import {useChatStore} from '../../stores/chatStore';
 import {useOnboardingStore} from '../../stores/onboardingStore';
+import {notificationService} from '../../services/notifications';
+import {api} from '../../services/api';
 
 type NavigationProp = NativeStackNavigationProp<
   ProfileStackParamList,
@@ -61,7 +63,7 @@ const MenuItem: React.FC<{
 );
 
 export const ProfileHomeScreen: React.FC = () => {
-  const {colors} = useTheme();
+  const {colors, isDark, toggleTheme} = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NavigationProp>();
   const {profile, setProfile} = useAuthStore();
@@ -69,34 +71,37 @@ export const ProfileHomeScreen: React.FC = () => {
   const profileQuery = useQuery({
     queryKey: ['profile'],
     queryFn: profileService.getMe,
+    staleTime: 2 * 60 * 1000, // 2 min
   });
 
   const interestsQuery = useQuery({
     queryKey: ['myInterests'],
     queryFn: interestsService.getMyInterests,
+    staleTime: 10 * 60 * 1000, // 10 min
   });
 
   const photosQuery = useQuery({
     queryKey: ['myPhotos'],
     queryFn: photosService.getMyPhotos,
+    staleTime: 10 * 60 * 1000,
   });
 
   const kycQuery = useQuery({
     queryKey: ['kycStatus'],
     queryFn: kycService.getStatus,
+    staleTime: 10 * 60 * 1000,
   });
 
   const traitsQuery = useQuery({
     queryKey: ['preferredTraits'],
     queryFn: assessmentService.getPreferredTraits,
+    staleTime: 10 * 60 * 1000,
   });
 
+  // Only refetch profile on focus — other data rarely changes
   useFocusEffect(
     useCallback(() => {
       profileQuery.refetch();
-      interestsQuery.refetch();
-      photosQuery.refetch();
-      kycQuery.refetch();
     }, []),
   );
 
@@ -127,7 +132,104 @@ export const ProfileHomeScreen: React.FC = () => {
 
   const queryClient = useQueryClient();
 
+  // Memoize radar chart — heavy SVG math only recomputes when traitScores or colors change
+  const radarChart = useMemo(() => {
+    if (traitScores.length === 0) return null;
+
+    const n = traitScores.length;
+    const SIZE = 400;
+    const CX = SIZE / 2;
+    const CY = SIZE / 2;
+    const RADIUS = 85;
+    const LABEL_RADIUS = RADIUS + 28;
+    const GRID_LEVELS = 4;
+
+    const getPoint = (i: number, value: number) => {
+      const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+      return {
+        x: CX + Math.cos(angle) * RADIUS * value,
+        y: CY + Math.sin(angle) * RADIUS * value,
+      };
+    };
+
+    const dataPoints = traitScores.map((t, i) => {
+      const val = Math.max(t.score ?? 0, 0.05);
+      return getPoint(i, val);
+    });
+    const dataPolygon = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+    const gridPolygons = Array.from({length: GRID_LEVELS}, (_, level) => {
+      const frac = (level + 1) / GRID_LEVELS;
+      return Array.from({length: n}, (__, i) => {
+        const p = getPoint(i, frac);
+        return `${p.x},${p.y}`;
+      }).join(' ');
+    });
+
+    const SHORT_NAMES: Record<string, string> = {
+      'Warmth / Compassion': 'Warmth',
+      'Honesty-Humility': 'Honesty',
+      'Attachment Anxiety': 'Attach. Anxiety',
+      'Attachment Avoidance': 'Attach. Avoidance',
+      'Openness — Aesthetic / Experiential': 'Openness',
+      'Repair Orientation': 'Repair Orient.',
+      'Autonomy / Boundary Respect': 'Autonomy',
+      'Communication Clarity / Directness': 'Communication',
+      'Reliability / Dependability in Dyad': 'Reliability',
+      'Exclusivity Preference': 'Exclusivity',
+    };
+
+    const labels = traitScores.map((t, i) => {
+      const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const x = CX + cosA * LABEL_RADIUS;
+      const y = CY + sinA * LABEL_RADIUS;
+      const score = Math.round((t.score ?? 0) * 100);
+      const shortName = SHORT_NAMES[t.name] || (t.name.length > 16 ? t.name.slice(0, 14) + '…' : t.name);
+      let anchor: 'start' | 'middle' | 'end' = 'middle';
+      if (cosA > 0.3) anchor = 'start';
+      else if (cosA < -0.3) anchor = 'end';
+      const clampedX = Math.max(55, Math.min(SIZE - 55, x));
+      return {x: clampedX, y, shortName, score, anchor};
+    });
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>PREFERRED PERSONALITY</Text>
+        <Text style={styles.sectionSubheader}>
+          What you're looking for in a partner
+        </Text>
+        <View style={styles.radarCard}>
+          <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+            {gridPolygons.map((pts, idx) => (
+              <Polygon key={`grid-${idx}`} points={pts} fill="none" stroke={colors.separator} strokeWidth={1} />
+            ))}
+            {traitScores.map((_, i) => {
+              const p = getPoint(i, 1);
+              return <Line key={`axis-${i}`} x1={CX} y1={CY} x2={p.x} y2={p.y} stroke={colors.separatorLight} strokeWidth={1} />;
+            })}
+            <Polygon points={dataPolygon} fill={colors.primaryMuted} stroke={colors.primary} strokeWidth={2} />
+            {dataPoints.map((p, i) => (
+              <Circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3.5} fill={colors.primary} />
+            ))}
+            {labels.map((l, i) => (
+              <React.Fragment key={`label-${i}`}>
+                <SvgText x={l.x} y={l.y - 4} fill={colors.textSecondary} fontSize={10} fontWeight="400" textAnchor={l.anchor}>{l.shortName}</SvgText>
+                <SvgText x={l.x} y={l.y + 10} fill={colors.primary} fontSize={11} fontWeight="700" textAnchor={l.anchor}>{l.score}</SvgText>
+              </React.Fragment>
+            ))}
+          </Svg>
+        </View>
+      </View>
+    );
+  }, [traitScores, colors, styles]);
+
   const handleSignOut = async () => {
+    // Unregister FCM token before signing out
+    await notificationService.unregisterToken().catch(() => {});
+    // Clear cached API token
+    api.clearTokenCache();
     // Sign out from Supabase (clears session token)
     await authService.signOut();
     // Clear all cached server data
@@ -237,6 +339,15 @@ export const ProfileHomeScreen: React.FC = () => {
         {/* Menu Section */}
         <View style={styles.menuCard}>
           <MenuItem
+            title="My Location"
+            iconName="location-outline"
+            iconBg="#FF9500"
+            onPress={() => navigation.navigate('Location')}
+            colors={colors}
+            menuStyles={styles}
+          />
+          <View style={styles.menuSeparator} />
+          <MenuItem
             title="Match Preferences"
             iconName="heart-outline"
             iconBg="#FF6B8A"
@@ -274,151 +385,36 @@ export const ProfileHomeScreen: React.FC = () => {
         </View>
 
         {/* Preferred Personality — Radar Chart */}
-        {traitScores.length > 0 && (() => {
-          const n = traitScores.length;
-          const SIZE = 400;
-          const CX = SIZE / 2;
-          const CY = SIZE / 2;
-          const RADIUS = 85;
-          const LABEL_RADIUS = RADIUS + 28;
-          const GRID_LEVELS = 4;
+        {radarChart}
 
-          // Compute point on radar for a given index and value (0-1)
-          const getPoint = (i: number, value: number) => {
-            const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-            return {
-              x: CX + Math.cos(angle) * RADIUS * value,
-              y: CY + Math.sin(angle) * RADIUS * value,
-            };
-          };
-
-          // Build data polygon points
-          const dataPoints = traitScores.map((t, i) => {
-            const val = Math.max(t.score ?? 0, 0.05); // min 5% so shape is visible
-            return getPoint(i, val);
-          });
-          const dataPolygon = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
-
-          // Grid polygons
-          const gridPolygons = Array.from({length: GRID_LEVELS}, (_, level) => {
-            const frac = (level + 1) / GRID_LEVELS;
-            const pts = Array.from({length: n}, (__, i) => {
-              const p = getPoint(i, frac);
-              return `${p.x},${p.y}`;
-            }).join(' ');
-            return pts;
-          });
-
-          // Shorten known long trait names
-          const SHORT_NAMES: Record<string, string> = {
-            'Warmth / Compassion': 'Warmth',
-            'Honesty-Humility': 'Honesty',
-            'Attachment Anxiety': 'Attach. Anxiety',
-            'Attachment Avoidance': 'Attach. Avoidance',
-            'Openness — Aesthetic / Experiential': 'Openness',
-            'Repair Orientation': 'Repair Orient.',
-            'Autonomy / Boundary Respect': 'Autonomy',
-            'Communication Clarity / Directness': 'Communication',
-            'Reliability / Dependability in Dyad': 'Reliability',
-            'Exclusivity Preference': 'Exclusivity',
-          };
-
-          // Label positions
-          const labels = traitScores.map((t, i) => {
-            const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-            const cosA = Math.cos(angle);
-            const sinA = Math.sin(angle);
-            const x = CX + cosA * LABEL_RADIUS;
-            const y = CY + sinA * LABEL_RADIUS;
-            const score = Math.round((t.score ?? 0) * 100);
-            const shortName = SHORT_NAMES[t.name] || (t.name.length > 16 ? t.name.slice(0, 14) + '…' : t.name);
-            // Text anchor based on position
-            let anchor: 'start' | 'middle' | 'end' = 'middle';
-            if (cosA > 0.3) anchor = 'start';
-            else if (cosA < -0.3) anchor = 'end';
-            // Clamp x so text doesn't overflow the SVG bounds
-            const clampedX = Math.max(55, Math.min(SIZE - 55, x));
-            return {x: clampedX, y, shortName, score, anchor, angle};
-          });
-
-          return (
-            <View style={styles.section}>
-              <Text style={styles.sectionHeader}>PREFERRED PERSONALITY</Text>
-              <Text style={styles.sectionSubheader}>
-                What you're looking for in a partner
-              </Text>
-              <View style={styles.radarCard}>
-                <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-                  {/* Grid polygons */}
-                  {gridPolygons.map((pts, idx) => (
-                    <Polygon
-                      key={`grid-${idx}`}
-                      points={pts}
-                      fill="none"
-                      stroke={colors.separator}
-                      strokeWidth={1}
-                    />
-                  ))}
-                  {/* Axis lines */}
-                  {traitScores.map((_, i) => {
-                    const p = getPoint(i, 1);
-                    return (
-                      <Line
-                        key={`axis-${i}`}
-                        x1={CX}
-                        y1={CY}
-                        x2={p.x}
-                        y2={p.y}
-                        stroke={colors.separatorLight}
-                        strokeWidth={1}
-                      />
-                    );
-                  })}
-                  {/* Data polygon fill */}
-                  <Polygon
-                    points={dataPolygon}
-                    fill={colors.primaryMuted}
-                    stroke={colors.primary}
-                    strokeWidth={2}
-                  />
-                  {/* Data points */}
-                  {dataPoints.map((p, i) => (
-                    <Circle
-                      key={`dot-${i}`}
-                      cx={p.x}
-                      cy={p.y}
-                      r={3.5}
-                      fill={colors.primary}
-                    />
-                  ))}
-                  {/* Labels: trait name + score */}
-                  {labels.map((l, i) => (
-                    <React.Fragment key={`label-${i}`}>
-                      <SvgText
-                        x={l.x}
-                        y={l.y - 4}
-                        fill={colors.textSecondary}
-                        fontSize={10}
-                        fontWeight="400"
-                        textAnchor={l.anchor}>
-                        {l.shortName}
-                      </SvgText>
-                      <SvgText
-                        x={l.x}
-                        y={l.y + 10}
-                        fill={colors.primary}
-                        fontSize={11}
-                        fontWeight="700"
-                        textAnchor={l.anchor}>
-                        {l.score}
-                      </SvgText>
-                    </React.Fragment>
-                  ))}
-                </Svg>
+        {/* Appearance Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>APPEARANCE</Text>
+          <View style={styles.accountCard}>
+            <TouchableOpacity
+              style={styles.accountRow}
+              onPress={toggleTheme}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel={`Switch to ${isDark ? 'light' : 'dark'} mode`}>
+              <View style={styles.accountIconCircle}>
+                <Icon
+                  name={isDark ? 'sunny-outline' : 'moon-outline'}
+                  size={20}
+                  color={colors.primary}
+                />
               </View>
-            </View>
-          );
-        })()}
+              <Text style={styles.accountRowText}>
+                {isDark ? 'Light Mode' : 'Dark Mode'}
+              </Text>
+              <Icon
+                name={isDark ? 'sunny' : 'moon'}
+                size={18}
+                color={colors.textTertiary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Account Section */}
         <View style={styles.section}>
@@ -453,6 +449,7 @@ export const ProfileHomeScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );

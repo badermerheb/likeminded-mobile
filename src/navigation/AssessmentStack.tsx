@@ -5,6 +5,7 @@ import {AssessmentHomeScreen} from '../screens/assessment/AssessmentHomeScreen';
 import {ChatbotScreen} from '../screens/assessment/ChatbotScreen';
 import {typography} from '../theme';
 import {useTheme} from '../theme/ThemeContext';
+import {ThemeToggleHeader} from '../components/ui/ThemeToggle';
 
 const Stack = createNativeStackNavigator<AssessmentStackParamList>();
 
@@ -26,6 +27,7 @@ export const AssessmentStack = () => {
         headerShadowVisible: false,
         headerTitleAlign: 'center',
         headerBackTitleVisible: false,
+        headerRight: () => <ThemeToggleHeader />,
       }}>
       <Stack.Screen
         name="AssessmentHome"

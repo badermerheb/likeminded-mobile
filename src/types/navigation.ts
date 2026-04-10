@@ -38,6 +38,7 @@ export type AssessmentStackParamList = {
 
 export type ProfileStackParamList = {
   ProfileHome: undefined;
+  Location: undefined;
   Interests: undefined;
   Gallery: undefined;
   Preferences: undefined;

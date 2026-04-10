@@ -60,38 +60,44 @@ export const MatchesHomeScreen: React.FC = () => {
   const conversationsQuery = useQuery({
     queryKey: ['conversations'],
     queryFn: conversationsService.list,
+    staleTime: 30 * 1000, // conversations change often — 30s
   });
 
   // Use backend matching/status endpoint - it checks events table for assessment_completed
   const matchingStatusQuery = useQuery({
     queryKey: ['matchingStatus'],
     queryFn: matchingService.getStatus,
+    staleTime: 2 * 60 * 1000, // 2 min
   });
 
   const interestsQuery = useQuery({
     queryKey: ['myInterests'],
     queryFn: interestsService.getMyInterests,
+    staleTime: 10 * 60 * 1000, // rarely changes — 10 min
   });
 
   const photosQuery = useQuery({
     queryKey: ['myPhotos'],
     queryFn: photosService.getMyPhotos,
+    staleTime: 10 * 60 * 1000,
   });
 
   const kycQuery = useQuery({
     queryKey: ['kycStatus'],
     queryFn: kycService.getStatus,
+    staleTime: 10 * 60 * 1000,
   });
 
   const traitsQuery = useQuery({
     queryKey: ['traits'],
     queryFn: assessmentService.getTraits,
+    staleTime: 10 * 60 * 1000,
   });
 
+  // Only refetch conversations on focus (the data that actually changes)
   useFocusEffect(
     useCallback(() => {
       conversationsQuery.refetch();
-      matchingStatusQuery.refetch();
     }, []),
   );
 

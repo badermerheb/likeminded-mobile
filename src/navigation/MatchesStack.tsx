@@ -6,6 +6,7 @@ import {ConversationScreen} from '../screens/matches/ConversationScreen';
 import {MatchPhotosScreen} from '../screens/matches/MatchPhotosScreen';
 import {typography} from '../theme';
 import {useTheme} from '../theme/ThemeContext';
+import {ThemeToggleHeader} from '../components/ui/ThemeToggle';
 
 const Stack = createNativeStackNavigator<MatchesStackParamList>();
 
@@ -27,6 +28,7 @@ export const MatchesStack = () => {
         headerShadowVisible: false,
         headerTitleAlign: 'center',
         headerBackTitleVisible: false,
+        headerRight: () => <ThemeToggleHeader />,
       }}>
       <Stack.Screen
         name="MatchesHome"

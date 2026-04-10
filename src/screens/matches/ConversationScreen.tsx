@@ -78,11 +78,16 @@ export const ConversationScreen: React.FC = () => {
     }
   }, [messagesQuery.data]);
 
-  // Feedback status
+  // Feedback status — only poll if not yet answered
   const feedbackQuery = useQuery({
     queryKey: ['feedback', conversationId],
     queryFn: () => conversationsService.getFeedbackStatus(conversationId),
-    refetchInterval: 60000,
+    staleTime: 5 * 60 * 1000, // 5 min
+    refetchInterval: (query) => {
+      // Stop polling once user has answered
+      if (query.state.data?.already_answered) return false;
+      return 5 * 60 * 1000; // check every 5 min instead of 60s
+    },
   });
 
   // Handle incoming WebSocket events
@@ -142,12 +147,12 @@ export const ConversationScreen: React.FC = () => {
         .then(() => setWsConnected(true))
         .catch(() => setWsConnected(false));
 
-      // Still poll as fallback (slower interval since WS is primary)
+      // Poll as fallback only when WS is disconnected (30s instead of 10s)
       pollInterval.current = setInterval(() => {
         if (!conversationWS.isConnected()) {
           messagesQuery.refetch();
         }
-      }, 10000);
+      }, 30000);
 
       return () => {
         if (pollInterval.current) clearInterval(pollInterval.current);
@@ -438,7 +443,7 @@ export const ConversationScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}>
       {/* Match Feedback Banner */}
       {shouldPrompt && (
@@ -512,6 +517,10 @@ export const ConversationScreen: React.FC = () => {
           flatListRef.current?.scrollToEnd({animated: false})
         }
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={15}
+        windowSize={10}
+        initialNumToRender={20}
       />
 
       {/* Input Bar */}
@@ -798,7 +807,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   },
   theirBubble: {
     maxWidth: '78%',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: c.chatThem,
     borderRadius: 18,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,

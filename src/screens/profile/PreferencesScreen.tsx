@@ -16,9 +16,9 @@ import {profileService} from '../../services/profile';
 import type {MatchPreferencesIn} from '../../types/api';
 
 const GENDER_OPTIONS = [
-  {value: 'man', label: 'Men'},
-  {value: 'woman', label: 'Women'},
-  {value: null, label: 'Everyone'},
+  {value: 'men', label: 'Men'},
+  {value: 'women', label: 'Women'},
+  {value: 'everyone', label: 'Everyone'},
 ];
 
 export const PreferencesScreen: React.FC = () => {

@@ -445,13 +445,13 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   googleBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(255,159,10,0.12)',
+    backgroundColor: c.warningLight,
     borderRadius: borderRadius.md,
     padding: spacing.base,
     marginTop: spacing.md,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,159,10,0.25)',
+    borderColor: c.warning + '40',
   },
   googleBannerText: {
     ...typography.subhead,

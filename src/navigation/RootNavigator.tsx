@@ -9,6 +9,7 @@ import { OnboardingStack } from './OnboardingStack';
 import { MainTabs } from './MainTabs';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { eventsService } from '../services/events';
+import { notificationService } from '../services/notifications';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -96,6 +97,15 @@ export const RootNavigator = () => {
       setLoading(false);
     }
   };
+
+  // Initialize push notifications once user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && !needsOnboarding && !isLoading) {
+      notificationService.initialize().catch(err => {
+        console.error('[RootNavigator] Notification init failed:', err);
+      });
+    }
+  }, [isAuthenticated, needsOnboarding, isLoading]);
 
   const loadProfile = async () => {
     const profile = await profileService.getMe();

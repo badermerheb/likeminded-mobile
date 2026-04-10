@@ -169,9 +169,14 @@ export interface EventIn {
 }
 
 // ── KYC ──
+export interface KycRejectionReason {
+  reason: string;
+  created_at: string;
+}
+
 export interface KycStatus {
   status: 'unverified' | 'pending' | 'verified';
-  reasons?: string[];
+  reasons?: KycRejectionReason[] | string[];
 }
 
 // ── Chatbot / Assessment ──

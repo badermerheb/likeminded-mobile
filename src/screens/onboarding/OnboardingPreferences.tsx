@@ -104,9 +104,9 @@ const createMarkerStyles = (c: ThemeColors) =>
   });
 
 const GENDER_PREFS = [
-  {value: 'man', label: 'Men'},
-  {value: 'woman', label: 'Women'},
-  {value: null, label: 'Everyone'},
+  {value: 'men', label: 'Men'},
+  {value: 'women', label: 'Women'},
+  {value: 'everyone', label: 'Everyone'},
 ];
 
 export const OnboardingPreferences: React.FC = () => {

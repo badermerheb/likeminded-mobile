@@ -6,9 +6,11 @@ import {InterestsScreen} from '../screens/profile/InterestsScreen';
 import {GalleryScreen} from '../screens/profile/GalleryScreen';
 import {PreferencesScreen} from '../screens/profile/PreferencesScreen';
 import {VerificationScreen} from '../screens/profile/VerificationScreen';
+import {LocationScreen} from '../screens/profile/LocationScreen';
 import {DeleteAccountScreen} from '../screens/profile/DeleteAccountScreen';
 import {typography} from '../theme';
 import {useTheme} from '../theme/ThemeContext';
+import {ThemeToggleHeader} from '../components/ui/ThemeToggle';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
@@ -30,6 +32,7 @@ export const ProfileStack = () => {
         headerShadowVisible: false,
         headerTitleAlign: 'center',
         headerBackTitleVisible: false,
+        headerRight: () => <ThemeToggleHeader />,
       }}>
       <Stack.Screen
         name="ProfileHome"
@@ -40,6 +43,11 @@ export const ProfileStack = () => {
           headerLargeStyle: {backgroundColor: colors.background},
           headerStyle: {backgroundColor: colors.background},
         }}
+      />
+      <Stack.Screen
+        name="Location"
+        component={LocationScreen}
+        options={{title: 'My Location'}}
       />
       <Stack.Screen
         name="Interests"

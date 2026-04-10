@@ -137,7 +137,11 @@ export const VerificationScreen: React.FC = () => {
   };
 
   const status = kycQuery.data?.status ?? 'unverified';
-  const reasons = kycQuery.data?.reasons ?? [];
+  const rawReasons = kycQuery.data?.reasons ?? [];
+  // Backend may return reasons as string[] or {reason, created_at}[]
+  const reasons = rawReasons.map(r =>
+    typeof r === 'string' ? r : r.reason ?? String(r),
+  );
 
   if (kycQuery.isLoading) {
     return <LoadingSpinner fullScreen />;

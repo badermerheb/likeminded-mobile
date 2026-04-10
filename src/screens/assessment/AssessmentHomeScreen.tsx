@@ -1,7 +1,7 @@
-import React, {useMemo} from 'react';
+import React, {useMemo, useCallback} from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
 import LinearGradient from 'react-native-linear-gradient';
@@ -37,6 +37,14 @@ export const AssessmentHomeScreen: React.FC = () => {
     queryKey: ['traits'],
     queryFn: assessmentService.getTraits,
   });
+
+  // Refetch on screen focus so button state is always up-to-date
+  useFocusEffect(
+    useCallback(() => {
+      historyQuery.refetch();
+      traitsQuery.refetch();
+    }, []),
+  );
 
   const historyData = historyQuery.data as any;
   const historyMessages = historyData?.messages ?? historyData ?? [];

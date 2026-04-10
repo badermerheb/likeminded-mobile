@@ -24,6 +24,7 @@ export const MainTabs = () => {
     <Tab.Navigator
       screenOptions={({route}) => ({
         headerShown: false,
+        lazy: true, // Only render tab when first visited
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarLabelStyle: {

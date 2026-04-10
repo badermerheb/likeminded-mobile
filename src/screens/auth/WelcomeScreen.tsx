@@ -174,7 +174,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   logoText: {
     ...typography.largeTitle,
     fontSize: 42,
-    color: c.white,
+    color: c.textPrimary,
     letterSpacing: 0.5,
   },
   logoLike: {

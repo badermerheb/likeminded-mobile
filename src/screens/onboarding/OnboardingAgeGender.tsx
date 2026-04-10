@@ -79,7 +79,7 @@ export const OnboardingAgeGender: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.content}>
           {/* Progress */}
           <ProgressBar progress={1 / 3} style={styles.progress} />
@@ -284,7 +284,7 @@ const createStyles = (c: ThemeColors) =>
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: 'rgba(255,255,255,0.25)',
+      backgroundColor: c.surfaceHover,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: spacing.sm,
